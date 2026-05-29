@@ -33,7 +33,9 @@ class Recipe(Base):
     user = relationship("User", back_populates="recipes")
     steps = relationship("RecipeStep", back_populates="recipe", cascade="all, delete-orphan", order_by="RecipeStep.step_number")
     ingredients = relationship("RecipeIngredient", back_populates="recipe", cascade="all, delete-orphan")
-    tags = relationship("RecipeTag", back_populates="recipe", cascade="all, delete-orphan")
+    recipe_tags = relationship("RecipeTag", back_populates="recipe", cascade="all, delete-orphan")
+    tags = relationship("Tag", secondary="recipe_tags", back_populates="recipes", viewonly=True)
+    bookmarks = relationship("Bookmark", back_populates="recipe", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Recipe {self.title}>"

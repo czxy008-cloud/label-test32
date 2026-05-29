@@ -24,7 +24,8 @@ class Tag(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # 关联关系
-    recipes = relationship("RecipeTag", back_populates="tag", cascade="all, delete-orphan")
+    recipe_tags = relationship("RecipeTag", back_populates="tag", cascade="all, delete-orphan")
+    recipes = relationship("Recipe", secondary="recipe_tags", back_populates="tags", viewonly=True)
 
     def __repr__(self):
         return f"<Tag {self.name}>"
@@ -40,8 +41,8 @@ class RecipeTag(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # 关联关系
-    recipe = relationship("Recipe", back_populates="tags")
-    tag = relationship("Tag", back_populates="recipes")
+    recipe = relationship("Recipe", back_populates="recipe_tags")
+    tag = relationship("Tag", back_populates="recipe_tags")
 
     def __repr__(self):
         return f"<RecipeTag recipe:{self.recipe_id} tag:{self.tag_id}>"

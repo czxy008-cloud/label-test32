@@ -31,6 +31,7 @@ class User(Base):
     recipes = relationship("Recipe", back_populates="user", cascade="all, delete-orphan")
     meal_plans = relationship("MealPlan", back_populates="user", cascade="all, delete-orphan")
     shopping_lists = relationship("ShoppingList", back_populates="user", cascade="all, delete-orphan")
+    bookmarks = relationship("Bookmark", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User {self.username}>"

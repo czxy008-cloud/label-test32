@@ -6,13 +6,15 @@
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 
 from app.database import get_db
 from app.models.user import User
 from app.models.recipe import Recipe, RecipeStep, RecipeIngredient
 from app.models.tag import Tag, RecipeTag
+from app.models.bookmark import Bookmark
 from app.schemas.recipe import (
     RecipeCreate,
     RecipeUpdate,
@@ -24,14 +26,27 @@ from app.schemas.recipe import (
     RecipeIngredientCreate,
     RecipeIngredientUpdate,
     RecipeIngredientResponse,
+    RecipeWithBookmarkResponse,
 )
 from app.core.security import get_current_user
 
 router = APIRouter()
 
 
+def _get_bookmark_count(db: Session, recipe_id: uuid.UUID) -> int:
+    return db.query(func.count(Bookmark.id)).filter(
+        Bookmark.recipe_id == recipe_id
+    ).scalar() or 0
+
+
+def _is_bookmarked(db: Session, user_id: uuid.UUID, recipe_id: uuid.UUID) -> bool:
+    return db.query(Bookmark).filter(
+        Bookmark.user_id == user_id,
+        Bookmark.recipe_id == recipe_id
+    ).first() is not None
+
+
 def _parse_uuid(id_str: str, field_name: str = "ID") -> uuid.UUID:
-    """将字符串转换为UUID"""
     try:
         return uuid.UUID(id_str)
     except (ValueError, TypeError):
@@ -51,13 +66,6 @@ async def create_recipe(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    创建新菜谱
-
-    - 支持多步骤图文混排
-    - 支持添加食材和标签
-    """
-    # 创建菜谱
     new_recipe = Recipe(
         user_id=current_user.id,
         title=recipe_data.title,
@@ -72,7 +80,6 @@ async def create_recipe(
     db.add(new_recipe)
     db.flush()
 
-    # 添加步骤
     for step_data in recipe_data.steps:
         step = RecipeStep(
             recipe_id=new_recipe.id,
@@ -82,7 +89,6 @@ async def create_recipe(
         )
         db.add(step)
 
-    # 添加食材
     for ing_data in recipe_data.ingredients:
         ingredient = RecipeIngredient(
             recipe_id=new_recipe.id,
@@ -93,7 +99,6 @@ async def create_recipe(
         )
         db.add(ingredient)
 
-    # 添加标签
     for tag_id in recipe_data.tag_ids:
         tag = db.query(Tag).filter(Tag.id == tag_id).first()
         if tag:
@@ -117,31 +122,22 @@ async def list_recipes(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    获取菜谱列表
+    query = db.query(Recipe).options(selectinload(Recipe.tags))
 
-    - 支持分页
-    - 支持搜索、标签筛选、难度筛选
-    - 默认只显示当前用户的菜谱和公开菜谱
-    """
-    query = db.query(Recipe)
-
-    # 搜索
     if search:
         query = query.filter(
             Recipe.title.contains(search) | Recipe.description.contains(search)
         )
 
-    # 标签筛选
     if tag_id:
         tag_uuid = _parse_uuid(tag_id, "标签ID")
-        query = query.join(RecipeTag).filter(RecipeTag.tag_id == tag_uuid)
+        query = query.filter(
+            Recipe.recipe_tags.any(RecipeTag.tag_id == tag_uuid)
+        )
 
-    # 难度筛选
     if difficulty:
         query = query.filter(Recipe.difficulty == difficulty)
 
-    # 公开状态筛选
     if is_public is not None:
         if is_public:
             query = query.filter(Recipe.is_public == True)
@@ -150,31 +146,29 @@ async def list_recipes(
                 (Recipe.user_id == current_user.id) & (Recipe.is_public == False)
             )
     else:
-        # 默认显示当前用户的菜谱和公开菜谱
         query = query.filter(
             (Recipe.user_id == current_user.id) | (Recipe.is_public == True)
         )
 
-    # 分页
-    total = query.count()
+    total = query.with_entities(func.count(func.distinct(Recipe.id))).scalar() or 0
+
     recipes = query.order_by(Recipe.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
 
     return recipes
 
 
-@router.get("/{recipe_id}", response_model=RecipeResponse)
+@router.get("/{recipe_id}", response_model=RecipeWithBookmarkResponse)
 async def get_recipe(
     recipe_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    获取菜谱详情
-
-    - 包含完整的步骤、食材和标签信息
-    """
     recipe_uuid = _parse_uuid(recipe_id, "菜谱ID")
-    recipe = db.query(Recipe).filter(Recipe.id == recipe_uuid).first()
+    recipe = db.query(Recipe).options(
+        selectinload(Recipe.tags),
+        selectinload(Recipe.steps),
+        selectinload(Recipe.ingredients),
+    ).filter(Recipe.id == recipe_uuid).first()
 
     if not recipe:
         raise HTTPException(
@@ -182,14 +176,35 @@ async def get_recipe(
             detail="菜谱不存在"
         )
 
-    # 检查权限：只有菜谱所有者或公开菜谱可以查看
     if recipe.user_id != current_user.id and not recipe.is_public:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="无权访问此菜谱"
         )
 
-    return recipe
+    is_bookmarked = _is_bookmarked(db, current_user.id, recipe_uuid)
+    bookmark_count = _get_bookmark_count(db, recipe_uuid)
+
+    recipe_data = {
+        "id": recipe.id,
+        "user_id": recipe.user_id,
+        "title": recipe.title,
+        "description": recipe.description,
+        "cover_image": recipe.cover_image,
+        "cooking_time": recipe.cooking_time,
+        "servings": recipe.servings,
+        "difficulty": recipe.difficulty,
+        "is_public": recipe.is_public,
+        "steps": recipe.steps,
+        "ingredients": recipe.ingredients,
+        "tags": recipe.tags,
+        "bookmark_count": bookmark_count,
+        "is_bookmarked": is_bookmarked,
+        "created_at": recipe.created_at,
+        "updated_at": recipe.updated_at,
+    }
+
+    return recipe_data
 
 
 @router.put("/{recipe_id}", response_model=RecipeResponse)

@@ -9,6 +9,7 @@ from app.models.tag import Tag, RecipeTag
 from app.models.ingredient import Ingredient
 from app.models.meal_plan import MealPlan, MealPlanItem
 from app.models.shopping import ShoppingList, ShoppingListItem
+from app.models.bookmark import Bookmark
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "MealPlanItem",
     "ShoppingList",
     "ShoppingListItem",
+    "Bookmark",
 ]

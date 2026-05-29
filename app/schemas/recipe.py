@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.tag import TagResponse
+
 
 class RecipeStepBase(BaseModel):
     """步骤基础模型"""
@@ -118,7 +120,7 @@ class RecipeResponse(RecipeBase):
     user_id: uuid.UUID
     steps: List[RecipeStepResponse] = []
     ingredients: List[RecipeIngredientResponse] = []
-    tags: List = []
+    tags: List[TagResponse] = []
     created_at: datetime
     updated_at: datetime
 
@@ -138,8 +140,25 @@ class RecipeListResponse(BaseModel):
     servings: int
     difficulty: str
     is_public: bool
-    tags: List = []
+    tags: List[TagResponse] = []
     created_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class RecipeWithBookmarkResponse(RecipeBase):
+    """菜谱响应模型（包含收藏状态）"""
+    id: uuid.UUID
+    user_id: uuid.UUID
+    steps: List[RecipeStepResponse] = []
+    ingredients: List[RecipeIngredientResponse] = []
+    tags: List[TagResponse] = []
+    bookmark_count: int = 0
+    is_bookmarked: bool = False
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {
         "from_attributes": True

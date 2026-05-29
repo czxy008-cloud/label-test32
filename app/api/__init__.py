@@ -13,6 +13,7 @@ from app.api.routes.meal_plans import router as meal_plans_router
 from app.api.routes.shopping import router as shopping_router
 from app.api.routes.nutrition import router as nutrition_router
 from app.api.routes.users import router as users_router
+from app.api.routes.bookmarks import router as bookmarks_router
 
 # 创建API v1路由器
 api_router = APIRouter()
@@ -26,3 +27,4 @@ api_router.include_router(ingredients_router, prefix="/ingredients", tags=["食�
 api_router.include_router(meal_plans_router, prefix="/meal-plans", tags=["饮食计划"])
 api_router.include_router(shopping_router, prefix="/shopping", tags=["购物清单"])
 api_router.include_router(nutrition_router, prefix="/nutrition", tags=["营养"])
+api_router.include_router(bookmarks_router, prefix="/bookmarks", tags=["收藏"])

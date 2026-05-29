@@ -23,6 +23,7 @@ from app.schemas.recipe import (
     RecipeIngredientCreate,
     RecipeIngredientUpdate,
     RecipeIngredientResponse,
+    RecipeWithBookmarkResponse,
 )
 from app.schemas.tag import (
     TagCreate,
@@ -53,6 +54,12 @@ from app.schemas.shopping import (
     ShoppingListItemResponse,
     ShoppingListWithItems,
 )
+from app.schemas.bookmark import (
+    BookmarkCreate,
+    BookmarkResponse,
+    BookmarkStatusResponse,
+    BookmarkRecipeResponse,
+)
 from app.schemas.common import (
     PaginatedResponse,
     MessageResponse,
@@ -78,6 +85,7 @@ __all__ = [
     "RecipeIngredientCreate",
     "RecipeIngredientUpdate",
     "RecipeIngredientResponse",
+    "RecipeWithBookmarkResponse",
     # Tag schemas
     "TagCreate",
     "TagResponse",
@@ -103,6 +111,11 @@ __all__ = [
     "ShoppingListItemUpdate",
     "ShoppingListItemResponse",
     "ShoppingListWithItems",
+    # Bookmark schemas
+    "BookmarkCreate",
+    "BookmarkResponse",
+    "BookmarkStatusResponse",
+    "BookmarkRecipeResponse",
     # Common schemas
     "PaginatedResponse",
     "MessageResponse",
